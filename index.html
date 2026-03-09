@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>储氢塔多点监测系统 · 节能减排大赛</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+        }
+        body {
+            background-color: #1e2b3c;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        #app {
+            width: 100%;
+            max-width: 400px;
+            background-color: #f0f4f8;
+            height: 700px;
+            border-radius: 32px 32px 0 0;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .status-bar {
+            background-color: #1e3a5f;
+            color: white;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .status-normal {
+            background-color: #2e7d32;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+        }
+        .status-warning {
+            background-color: #b71c1c;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } }
+        .refresh-badge {
+            background: #2c4a6e;
+            padding: 4px 8px;
+            border-radius: 16px;
+            font-size: 12px;
+        }
+
+        .alert-banner {
+            background-color: #b71c1c;
+            color: white;
+            padding: 10px 16px;
+            margin: 8px 12px;
+            border-radius: 40px;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(183,28,28,0.4);
+            transition: all 0.3s;
+        }
+        .alert-banner.hidden { display: none; }
+        .alert-detail { font-weight: 600; }
+        .alert-measure { font-size: 12px; background: #ffffff30; padding: 4px 8px; border-radius: 20px; }
+
+        .page-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            scroll-behavior: smooth;
+            background-color: #f0f4f8;
+        }
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e3a5f;
+            margin: 12px 0 6px 0;
+            padding-left: 6px;
+            border-left: 4px solid #2b6f9b;
+        }
+        .card-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .data-card {
+            background: white;
+            border-radius: 20px;
+            padding: 14px 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            flex: 1 1 calc(50% - 5px);
+            min-width: 160px;
+            border: 1px solid #e9ecf0;
+        }
+        .data-card.full-width { flex: 1 1 100%; }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #5e6f8d;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        .point-id {
+            background: #e0e7f0;
+            padding: 2px 8px;
+            border-radius: 30px;
+        }
+        .sensor-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .sensor-label { font-size: 13px; color: #3a4b65; }
+        .sensor-value {
+            font-weight: 700;
+            font-size: 18px;
+        }
+        .unit { font-size: 11px; color: #7f8fa4; margin-left: 2px; }
+        .progress-bg {
+            width: 80px;
+            height: 8px;
+            background: #dee2e9;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: #2e7d32;
+            border-radius: 20px;
+        }
+        .progress-fill.warning { background: #b71c1c; }
+        .badge { padding: 4px 8px; border-radius: 30px; font-size: 12px; background: #eef2f6; }
+
+        .action-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 16px 0 8px;
+        }
+        .btn {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 10px 14px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #1e3a5f;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            flex: 1 0 auto;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: #1e3a5f;
+            color: white;
+            border: none;
+        }
+        .btn-warning {
+            background: #b71c1c;
+            color: white;
+            border: none;
+        }
+        .btn-highlight { background: #ffb74d; border: none; }
+
+        .tower-diagram {
+            background: #d9e2ec;
+            border-radius: 40px;
+            padding: 24px 16px;
+            margin: 20px 0;
+            position: relative;
+            border: 2px dashed #2b6f9b;
+        }
+        .tower-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .heat-exchanger {
+            background: #b0c4de;
+            height: 60px;
+            width: 80%;
+            border-radius: 30px 30px 10px 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #1e3a5f;
+            font-weight: bold;
+            font-size: 12px;
+            margin: 4px auto;
+            border: 2px solid #6c8eb0;
+        }
+        .hydrogen-storage {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin: 8px 0;
+        }
+        .zone {
+            background: #bdd3e8;
+            width: 40%;
+            border-radius: 30px;
+            padding: 20px 0;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            border: 2px solid #2c4a6e;
+            position: relative;
+        }
+        .zone1 { border-color: #2e7d32; }
+        .zone2 { border-color: #b85e00; }
+        .point-marker {
+            position: absolute;
+            width: 28px;
+            height: 28px;
+            background: #2e7d32;
+            border: 3px solid white;
+            border-radius: 50%;
+            color: white;
+            font-size: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            box-shadow: 0 2px 6px black;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .point-marker.warning { background: #b71c1c; animation: blink 1s infinite; }
+        @keyframes blink { 0%{opacity:1} 50%{opacity:0.5} }
+        .lower-func {
+            background: #7b98b5;
+            height: 50px;
+            width: 80%;
+            border-radius: 10px 10px 30px 30px;
+            margin: 8px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 12px;
+        }
+        .popup-card {
+            background: white;
+            border-radius: 24px;
+            padding: 16px;
+            margin-top: 12px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+            border: 2px solid #1e3a5f;
+        }
+
+        .bottom-nav {
+            display: flex;
+            background: #1e3a5f;
+            color: white;
+            justify-content: space-around;
+            padding: 10px 0;
+            border-radius: 30px 30px 0 0;
+        }
+        .nav-item {
+            text-align: center;
+            font-size: 12px;
+            color: #a0c0e0;
+            cursor: pointer;
+        }
+        .nav-item.active {
+            color: white;
+            font-weight: 600;
+        }
+
+        .mt-2 { margin-top: 8px; }
+        .flex { display: flex; gap: 10px; }
+        .hidden { display: none; }
+        .text-small { font-size: 12px; color: #4f658d; }
+        .valve-row { display: flex; justify-content: space-between; margin: 8px 0; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="status-bar">
+        <span>⚙️ 模块化可拆卸式机械通风储氢塔</span>
+        <span id="globalStateBadge" class="status-normal">● 正常</span>
+        <span class="refresh-badge" id="freqDisplay">1s/次</span>
+    </div>
+
+    <div id="alertBanner" class="alert-banner hidden">
+        <span>⚠️ <span id="alertDetail" class="alert-detail">预警中</span></span>
+        <span id="alertMeasure" class="alert-measure">建议措施</span>
+    </div>
+
+    <div class="page-container" id="pageContainer">
+        <!-- 页面1: 总览 -->
+        <div id="page1" class="page active">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <div class="section-title">📊 全塔监测总览</div>
+                <span style="font-size:12px; background:#dee2e9; padding:4px 8px; border-radius:30px;">6大区域 | 10个检测点</span>
+            </div>
+            <!-- 快捷按钮 -->
+            <div class="action-bar">
+                <button class="btn" id="viewAllBtn">全塔</button>
+                <button class="btn" id="viewZone1Btn">储氢一区</button>
+                <button class="btn" id="viewZone2Btn">储氢二区</button>
+                <button class="btn btn-warning" id="triggerWarnBtn">触发预警</button>
+                <button class="btn" id="fanSpeedBtn">风机 中速</button>
+                <button class="btn btn-primary" id="gotoPage2Btn">2D定位图</button>
+            </div>
+
+            <div id="cardsContainer"></div>
+            <p class="text-small" style="text-align:center; margin:16px;">实时模拟数据 · 专利布局: 分区换热/低温阻隔</p>
+        </div>
+
+        <!-- 页面2: 2D定位图 -->
+        <div id="page2" class="page">
+            <div class="section-title">🗺️ 检测点2D定位 (可点击)</div>
+            <div class="tower-diagram" id="towerDiagram">
+                <!-- JS生成 -->
+            </div>
+            <div id="pointPopup" class="popup-card hidden">
+                <div style="font-weight:bold; margin-bottom:8px;">📍 点位详情</div>
+                <div id="popupContent">加载中...</div>
+                <button class="btn" style="width:100%; margin-top:8px;" id="closePopup">关闭</button>
+            </div>
+            <div class="action-bar">
+                <button class="btn" id="backToPage1">返回总览</button>
+                <button class="btn btn-primary" id="simulateLeak2D">模拟泄漏(二区)</button>
+            </div>
+        </div>
+
+        <!-- 页面3: 设置/状态 -->
+        <div id="page3" class="page">
+            <div class="section-title">⚙️ 系统状态与参数</div>
+            <div class="data-card full-width">
+                <div class="valve-row"><span>检测点总数/在线</span><span>10 / 10 ✅</span></div>
+                <div class="valve-row"><span>分区一阀门</span><span id="valve1" style="color:green;">● 开启</span></div>
+                <div class="valve-row"><span>分区二阀门</span><span id="valve2" style="color:green;">● 开启</span></div>
+                <div class="valve-row"><span>低温阻隔子层一</span><span id="barrier1">折叠</span></div>
+                <div class="valve-row"><span>低温阻隔子层二</span><span id="barrier2">折叠</span></div>
+                <div class="valve-row"><span>风机状态</span><span id="fanState">中速 自动</span></div>
+            </div>
+            <div class="section-title">📝 预警阈值设置</div>
+            <div class="data-card full-width">
+                <div class="sensor-row"><span>氢气阈值(%vol)</span><input id="h2Threshold" type="number" value="4.0" step="0.1" style="width:70px; padding:4px;"></div>
+                <div class="sensor-row"><span>温度阈值(℃)</span><input id="tempThreshold" type="number" value="60" step="1" style="width:70px; padding:4px;"></div>
+                <div class="sensor-row"><span>刷新频率</span><select id="freqSelect"><option value="1000">1s</option><option value="2000">2s</option><option value="3000">3s</option></select></div>
+                <button class="btn btn-primary" id="resetAllBtn">一键恢复正常</button>
+            </div>
+            <div class="section-title">📄 项目说明</div>
+            <div class="data-card full-width text-small">
+                基于专利“模块化可拆卸式机械通风储氢塔”设计。多点监测覆盖塔底进口、中部通风、塔顶出口、储氢一区/二区、公共区。联动逻辑：预警->关闭分区阀门+启动低温阻隔+高速风机。
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <div class="nav-item active" data-page="1">📊 总览</div>
+        <div class="nav-item" data-page="2">🗺️ 定位</div>
+        <div class="nav-item" data-page="3">⚙️ 设置</div>
+    </div>
+</div>
+
+<script>
+(function() {
+    // ---------- 全局变量 ----------
+    const page1 = document.getElementById('page1');
+    const page2 = document.getElementById('page2');
+    const page3 = document.getElementById('page3');
+    const navItems = document.querySelectorAll('.nav-item');
+    const alertBanner = document.getElementById('alertBanner');
+    const alertDetail = document.getElementById('alertDetail');
+    const alertMeasure = document.getElementById('alertMeasure');
+    const globalStateBadge = document.getElementById('globalStateBadge');
+    const freqDisplay = document.getElementById('freqDisplay');
+    const cardsContainer = document.getElementById('cardsContainer');
+
+    // 阈值
+    let h2Threshold = 4.0;
+    let tempThreshold = 60;
+
+    // 风机相关全局变量
+    let fanSpeedLevel = '中速';   // 低速 / 中速 / 高速
+    let fanPoint = null;          // 将在初始化时赋值
+
+    // 刷新间隔
+    let intervalId = null;
+    let refreshRate = 1000;
+
+    // ---------- 定义检测点数据 ----------
+    const pointDefs = [
+        { id: 'A1', zone: '塔底进口', label: '进口氢气浓度', unit: '%vol', type: 'h2', init: 0.2 },
+        { id: 'A2', zone: '塔底进口', label: '环境温度', unit: '℃', type: 'temp', init: 25 },
+        { id: 'B1', zone: '中部通风', label: '氢气浓度', unit: '%vol', type: 'h2', init: 0.3 },
+        { id: 'B2', zone: '中部通风', label: '环境温度', unit: '℃', type: 'temp', init: 28 },
+        { id: 'B3', zone: '中部通风', label: '风机转速', unit: 'r/min', type: 'fan', init: 1200 },  // 中速
+        { id: 'C1', zone: '塔顶出口', label: '氢气浓度', unit: '%vol', type: 'h2', init: 0.1 },
+        { id: 'C2', zone: '塔顶出口', label: '环境温度', unit: '℃', type: 'temp', init: 26 },
+        { id: 'D1', zone: '储氢一区', label: '模块1-氢气', unit: '%vol', type: 'h2', init: 0.8, sub: 'M1-1' },
+        { id: 'D2', zone: '储氢一区', label: '模块1-温度', unit: '℃', type: 'temp', init: 45, sub: 'M1-1' },
+        { id: 'D3', zone: '储氢一区', label: '模块2-氢气', unit: '%vol', type: 'h2', init: 0.6, sub: 'M1-2' },
+        { id: 'D4', zone: '储氢一区', label: '模块2-温度', unit: '℃', type: 'temp', init: 42, sub: 'M1-2' },
+        { id: 'D5', zone: '储氢一区', label: '模块3-氢气', unit: '%vol', type: 'h2', init: 0.7, sub: 'M1-3' },
+        { id: 'D6', zone: '储氢一区', label: '模块3-温度', unit: '℃', type: 'temp', init: 47, sub: 'M1-3' },
+        { id: 'E1', zone: '储氢二区', label: '模块1-氢气', unit: '%vol', type: 'h2', init: 0.9, sub: 'M2-1' },
+        { id: 'E2', zone: '储氢二区', label: '模块1-温度', unit: '℃', type: 'temp', init: 48, sub: 'M2-1' },
+        { id: 'E3', zone: '储氢二区', label: '模块2-氢气', unit: '%vol', type: 'h2', init: 0.5, sub: 'M2-2' },
+        { id: 'E4', zone: '储氢二区', label: '模块2-温度', unit: '℃', type: 'temp', init: 41, sub: 'M2-2' },
+        { id: 'E5', zone: '储氢二区', label: '模块3-氢气', unit: '%vol', type: 'h2', init: 0.8, sub: 'M2-3' },
+        { id: 'E6', zone: '储氢二区', label: '模块3-温度', unit: '℃', type: 'temp', init: 46, sub: 'M2-3' },
+        { id: 'F1', zone: '公共区', label: '氢气浓度', unit: '%vol', type: 'h2', init: 0.3 },
+        { id: 'F2', zone: '公共区', label: '环境温度', unit: '℃', type: 'temp', init: 30 }
+    ];
+
+    // 构建points数组
+    let points = pointDefs.map(p => ({
+        ...p,
+        value: p.init,
+        warning: false
+    }));
+
+    // 初始化风机点
+    fanPoint = points.find(p => p.id === 'B3');
+    if (fanPoint) {
+        fanPoint.value = 1200;   // 对应中速
+        fanPoint.type = 'fan';
+    }
+
+    // ---------- 辅助函数 ----------
+    function renderCards() {
+        let html = '';
+        const zones = ['塔底进口', '中部通风', '塔顶出口', '储氢一区', '储氢二区', '公共区'];
+        zones.forEach(zone => {
+            const zonePoints = points.filter(p => p.zone === zone);
+            if (zonePoints.length === 0) return;
+            html += `<div class="section-title">🔹 ${zone}</div>`;
+            html += `<div class="card-grid">`;
+            if (zone === '储氢一区' || zone === '储氢二区') {
+                // 按sub分组
+                const grouped = {};
+                zonePoints.forEach(p => { if (p.sub) { if (!grouped[p.sub]) grouped[p.sub] = []; grouped[p.sub].push(p); } });
+                for (let sub in grouped) {
+                    const pts = grouped[sub];
+                    const h2pt = pts.find(p => p.type === 'h2');
+                    const temppt = pts.find(p => p.type === 'temp');
+                    if (h2pt && temppt) {
+                        let h2Class = h2pt.warning ? 'warning' : '';
+                        let tempClass = temppt.warning ? 'warning' : '';
+                        html += `<div class="data-card" data-points="${h2pt.id},${temppt.id}" data-zone="${zone}">`;
+                        html += `<div class="card-header"><span class="point-id">${h2pt.sub}</span><span>${zone}</span></div>`;
+                        html += `<div class="sensor-row"><span>氢气浓度</span><span class="sensor-value ${h2Class}" id="val-${h2pt.id}">${h2pt.value.toFixed(2)}<span class="unit">%vol</span></span></div>`;
+                        html += `<div class="progress-bg"><div class="progress-fill ${h2Class}" style="width:${Math.min(h2pt.value * 20, 100)}%"></div></div>`;
+                        html += `<div class="sensor-row mt-2"><span>模块温度</span><span class="sensor-value ${tempClass}" id="val-${temppt.id}">${temppt.value.toFixed(1)}<span class="unit">℃</span></span></div>`;
+                        html += `<div class="progress-bg"><div class="progress-fill ${tempClass}" style="width:${Math.min(temppt.value * 1.5, 100)}%"></div></div>`;
+                        html += `</div>`;
+                    }
+                }
+            } else {
+                zonePoints.forEach(p => {
+                    let warnClass = p.warning ? 'warning' : '';
+                    html += `<div class="data-card" data-points="${p.id}" data-zone="${zone}">`;
+                    html += `<div class="card-header"><span class="point-id">${p.id}</span><span>${p.label}</span></div>`;
+                    if (p.id === 'B3') {
+                        html += `<div class="sensor-row"><span class="sensor-value" id="val-${p.id}">${fanSpeedLevel} ${p.value}<span class="unit">r/min</span></span></div>`;
+                    } else {
+                        html += `<div class="sensor-row"><span class="sensor-value ${warnClass}" id="val-${p.id}">${p.value.toFixed(p.type === 'h2' ? 2 : 1)}<span class="unit">${p.unit}</span></span></div>`;
+                        let percent = p.type === 'h2' ? Math.min(p.value * 20, 100) : Math.min(p.value * 1.5, 100);
+                        html += `<div class="progress-bg"><div class="progress-fill ${warnClass}" style="width:${percent}%"></div></div>`;
+                    }
+                    html += `</div>`;
+                });
+            }
+            html += `</div>`;
+        });
+        cardsContainer.innerHTML = html;
+    }
+
+    function updateUI() {
+        // 更新所有数值显示和预警样式
+        points.forEach(p => {
+            const el = document.getElementById(`val-${p.id}`);
+            if (el) {
+                if (p.id === 'B3') {
+                    el.innerText = `${fanSpeedLevel} ${p.value} r/min`;
+                } else {
+                    el.innerText = p.value.toFixed(p.type === 'h2' ? 2 : 1);
+                }
+                // 更新预警类
+                if (p.warning) {
+                    el.classList.add('warning');
+                } else {
+                    el.classList.remove('warning');
+                }
+            }
+
+            // 更新进度条 (通过父级查找)
+            const card = document.querySelector(`[data-points*="${p.id}"]`);
+            if (card && p.id !== 'B3') {
+                const fill = card.querySelector(`.progress-fill`);
+                if (fill) {
+                    let percent = p.type === 'h2' ? Math.min(p.value * 20, 100) : Math.min(p.value * 1.5, 100);
+                    fill.style.width = percent + '%';
+                    if (p.warning) fill.classList.add('warning'); else fill.classList.remove('warning');
+                }
+            }
+        });
+
+        // 更新预警横幅
+        const warningList = points.filter(p => p.warning);
+        if (warningList.length > 0) {
+            globalStateBadge.innerText = '● 预警中';
+            globalStateBadge.className = 'status-warning';
+            alertBanner.classList.remove('hidden');
+            let first = warningList[0];
+            alertDetail.innerText = `${first.zone} ${first.id}  ${first.type === 'h2' ? '氢气' : '温度'} ${first.value.toFixed(1)}${first.unit}`;
+            alertMeasure.innerText = '建议关闭分区阀门+高速风机';
+        } else {
+            globalStateBadge.innerText = '● 正常';
+            globalStateBadge.className = 'status-normal';
+            alertBanner.classList.add('hidden');
+        }
+
+        // 更新阀门及阻隔层状态
+        updateValveStates();
+    }
+
+    function updateValveStates() {
+        let zone1Warn = points.some(p => p.zone.includes('一') && p.warning);
+        let zone2Warn = points.some(p => p.zone.includes('二') && p.warning);
+
+        document.getElementById('valve1').innerHTML = zone1Warn ? '🔴 关闭' : '🟢 开启';
+        document.getElementById('valve2').innerHTML = zone2Warn ? '🔴 关闭' : '🟢 开启';
+        document.getElementById('barrier1').innerText = zone1Warn ? '展开中' : '折叠';
+        document.getElementById('barrier2').innerText = zone2Warn ? '展开中' : '折叠';
+
+        // 根据预警自动调整风机（如果有预警且非手动强制，但为演示清晰，这里不自动覆盖手动等级，但显示建议）
+        if (warningList.length > 0) {
+            // 如果有预警，提示高速；但保留手动设置，仅显示建议
+            // 我们可以在预警横幅中提示，风机状态显示“建议高速”
+            document.getElementById('fanState').innerText = fanSpeedLevel + ' (建议高速)';
+        } else {
+            document.getElementById('fanState').innerText = fanSpeedLevel + ' 自动';
+        }
+    }
+
+    // 随机波动
+    function randomWalk() {
+        points.forEach(p => {
+            if (p.id === 'B3') return; // 风机不自动波动
+            let step = (Math.random() - 0.5) * 0.6;
+            let newVal = p.value + step;
+            if (p.type === 'h2') {
+                if (newVal < 0) newVal = 0.1;
+                if (newVal > 6) newVal = 6;
+            } else {
+                if (newVal < 10) newVal = 10;
+                if (newVal > 80) newVal = 80;
+            }
+            p.value = newVal;
+            // 判断预警
+            if (p.type === 'h2') p.warning = p.value >= h2Threshold;
+            if (p.type === 'temp') p.warning = p.value >= tempThreshold;
+        });
+        updateUI();
+        update2DMarkers();
+    }
+
+    // 2D图相关
+    function render2D() {
+        const container = document.getElementById('towerDiagram');
+        let html = `
+            <div class="tower-section">
+                <div class="heat-exchanger">上部换热区 (分区管路)</div>
+                <div class="hydrogen-storage">
+                    <div class="zone zone1" id="zone1diag">储氢一区
+                        <div class="point-marker" style="top:20px; left:10px;" data-point="D1">D1</div>
+                        <div class="point-marker" style="top:20px; left:50px;" data-point="D3">D3</div>
+                        <div class="point-marker" style="bottom:25px; left:30px;" data-point="D5">D5</div>
+                    </div>
+                    <div class="zone zone2" id="zone2diag">储氢二区
+                        <div class="point-marker" style="top:10px; left:10px;" data-point="E1">E1</div>
+                        <div class="point-marker" style="top:30px; left:30px;" data-point="E3">E3</div>
+                        <div class="point-marker" style="bottom:10px; left:70px;" data-point="E5">E5</div>
+                    </div>
+                </div>
+                <div class="heat-exchanger" style="background:#8aa9c9;">中部通风装置区(B1,B2,B3)</div>
+                <div class="lower-func">下部功能区(电解槽/燃料电池/浴罐)</div>
+            </div>
+            <div style="display:flex; justify-content:space-around; margin-top:12px;">
+                <span style="background:green; color:white; padding:2px 10px; border-radius:20px;">一区</span>
+                <span style="background:#b85e00; color:white; padding:2px 10px; border-radius:20px;">二区</span>
+            </div>
+        `;
+        container.innerHTML = html;
+        attachPointClick();
+        update2DMarkers();
+    }
+
+    function attachPointClick() {
+        document.querySelectorAll('.point-marker').forEach(m => {
+            m.addEventListener('click', (e) => {
+                e.stopPropagation();
+                let pid = m.dataset.point;
+                let pt = points.find(p => p.id === pid);
+                if (pt) {
+                    document.getElementById('pointPopup').classList.remove('hidden');
+                    document.getElementById('popupContent').innerHTML = `
+                        <p>检测点: ${pt.id} (${pt.zone})</p>
+                        <p>氢气浓度: ${(points.find(p=>p.id===pt.id)?.value || 0).toFixed(2)} %vol</p>
+                        <p>温度: ${(points.find(p=>p.id===pt.id)?.value || 0).toFixed(1)} ℃</p>
+                        <p>所属分区: ${pt.zone.includes('一')?'一区':'二区'}</p>
+                    `;
+                }
+            });
+        });
+    }
+
+    function update2DMarkers() {
+        document.querySelectorAll('.point-marker').forEach(m => {
+            let pid = m.dataset.point;
+            let pt = points.find(p => p.id === pid);
+            if (pt && pt.warning) {
+                m.classList.add('warning');
+            } else {
+                m.classList.remove('warning');
+            }
+        });
+    }
+
+    // 触发预警（随机使几个氢气点超标）
+    function triggerWarning() {
+        points.forEach(p => {
+            if (p.type === 'h2' && Math.random() > 0.5) {
+                p.value = h2Threshold + 0.8;
+                p.warning = true;
+            }
+        });
+        updateUI();
+        update2DMarkers();
+    }
+
+    // 重置所有数据
+    function resetAll() {
+        points.forEach(p => {
+            if (p.type === 'h2') p.value = 0.2 + Math.random() * 0.5;
+            if (p.type === 'temp') p.value = 25 + Math.random() * 15;
+            p.warning = false;
+        });
+        // 风机复位到中速
+        fanSpeedLevel = '中速';
+        if (fanPoint) fanPoint.value = 1200;
+        document.getElementById('fanSpeedBtn').innerText = '风机 中速';
+        updateUI();
+        update2DMarkers();
+        updateValveStates();
+    }
+
+    // 启动刷新
+    function startRefresh(rate) {
+        if (intervalId) clearInterval(intervalId);
+        intervalId = setInterval(randomWalk, rate);
+    }
+
+    // 页面切换
+    function showPage(pageNum) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(`page${pageNum}`).classList.add('active');
+        navItems.forEach((item, idx) => {
+            if (idx == pageNum - 1) item.classList.add('active'); else item.classList.remove('active');
+        });
+        if (pageNum == 2) {
+            render2D();
+        }
+    }
+
+    // 页面加载完成
+    window.onload = function() {
+        renderCards();
+        render2D();
+        startRefresh(refreshRate);
+
+        // 获取风机按钮
+        const fanBtn = document.getElementById('fanSpeedBtn');
+        // 点击风机调速
+        fanBtn.addEventListener('click', function() {
+            if (fanSpeedLevel === '低速') {
+                fanSpeedLevel = '中速';
+                fanPoint.value = 1200;
+            } else if (fanSpeedLevel === '中速') {
+                fanSpeedLevel = '高速';
+                fanPoint.value = 1800;
+            } else { // 高速
+                fanSpeedLevel = '低速';
+                fanPoint.value = 800;
+            }
+            // 更新按钮文字
+            this.innerText = `风机 ${fanSpeedLevel}`;
+            // 更新风机显示
+            const fanEl = document.getElementById('val-B3');
+            if (fanEl) {
+                fanEl.innerText = `${fanSpeedLevel} ${fanPoint.value} r/min`;
+            }
+            // 更新设置页的风机状态
+            document.getElementById('fanState').innerText = fanSpeedLevel + ' 手动';
+            // 整体UI更新（确保预警类等）
+            updateUI();
+        });
+
+        // 其他按钮事件
+        document.getElementById('viewAllBtn').addEventListener('click', ()=>{
+            document.querySelectorAll('[data-zone]').forEach(c => c.style.display = '');
+        });
+        document.getElementById('viewZone1Btn').addEventListener('click', ()=>{
+            document.querySelectorAll('[data-zone]').forEach(c => {
+                if (c.dataset.zone.includes('一')) c.style.display = '';
+                else if (c.dataset.zone.includes('二')) c.style.display = 'none';
+                else c.style.display = '';
+            });
+        });
+        document.getElementById('viewZone2Btn').addEventListener('click', ()=>{
+            document.querySelectorAll('[data-zone]').forEach(c => {
+                if (c.dataset.zone.includes('二')) c.style.display = '';
+                else if (c.dataset.zone.includes('一')) c.style.display = 'none';
+                else c.style.display = '';
+            });
+        });
+        document.getElementById('triggerWarnBtn').addEventListener('click', triggerWarning);
+        document.getElementById('gotoPage2Btn').addEventListener('click', ()=> showPage(2));
+        document.getElementById('backToPage1').addEventListener('click', ()=> showPage(1));
+        document.getElementById('simulateLeak2D').addEventListener('click', ()=>{
+            // 设置二区某个点超标
+            let pt = points.find(p => p.id === 'E1');
+            if (pt) { pt.value = 5.2; pt.warning = true; }
+            updateUI(); update2DMarkers(); updateValveStates();
+            showPage(2);
+        });
+        document.getElementById('closePopup').addEventListener('click', ()=> document.getElementById('pointPopup').classList.add('hidden'));
+        document.getElementById('resetAllBtn').addEventListener('click', resetAll);
+
+        // 阈值输入
+        document.getElementById('h2Threshold').addEventListener('input', (e) => h2Threshold = parseFloat(e.target.value));
+        document.getElementById('tempThreshold').addEventListener('input', (e) => tempThreshold = parseFloat(e.target.value));
+
+        // 刷新频率
+        document.getElementById('freqSelect').addEventListener('change', (e) => {
+            refreshRate = Number(e.target.value);
+            freqDisplay.innerText = (refreshRate / 1000) + 's/次';
+            startRefresh(refreshRate);
+        });
+
+        // 底部导航
+        navItems.forEach((item, idx) => {
+            item.addEventListener('click', () => showPage(idx + 1));
+        });
+
+        // 初始化阀门状态
+        updateValveStates();
+    };
+})();
+</script>
+</body>
+</html>
